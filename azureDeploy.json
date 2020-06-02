@@ -1,0 +1,233 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "0.0.0.2",
+    "parameters": {
+        "appName": {
+            "type": "string",
+            "metadata": {
+                "description": "The name of the function app that you wish to create."
+            }
+        },
+        "appServicePlan" : {
+            "type": "string",
+            "defaultValue": "ServicePlan",
+            "allowedValues": [
+                "ServicePlan",
+                "Consumption"
+            ],
+            "metadata": {
+                "description": "ServicePlan creates an App Service Plan and is billed according to that plan. Consumption bills according to https://azure.microsoft.com/en-gb/pricing/details/functions/."
+            }
+        },
+        "appServicePlanTier": {
+            "type": "string",
+            "allowedValues": [
+                "Free",
+                "Shared",
+                "Basic",
+                "Standard",
+                "Premium",
+                "Isolated"
+            ],
+            "defaultValue": "",
+            "metadata": {
+                "description": "ServicePlan only: See here for details: https://azure.microsoft.com/en-us/pricing/details/app-service/windows/"
+            }
+        },
+        "appServicePlanName": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "ServicePlan only: Plan name must match with plan tier. See here for details: https://azure.microsoft.com/en-us/pricing/details/app-service/windows/"
+            }
+        },
+        "appServicePlanCapacity": {
+            "type": "int",
+            "defaultValue": 2
+        },
+        "githubRepoURL": {
+            "type": "string",
+            "defaultValue": "https://github.com/arledesma/AzureNetworkWatcherNSGFlowLogsConnector.git"
+        },
+        "githubRepoBranch": {
+            "type": "string",
+            "defaultValue": "feature/armor"
+        },        
+        "nsgSourceDataConnection": {
+            "type": "string",
+            "metadata": {
+                "description": "Mandatory storage account connection string for nsg flow log data."
+            }
+        },
+        "outputBinding": {
+            "type": "string",
+            "allowedValues": [
+                "armor"
+            ],
+            "defaultValue": "armor",
+            "metadata": {
+                "description": "Select the desired destination for your logs."
+            }
+        },
+        "armorAddress": {
+            "type": "string",
+            "defaultValue": "1d.log.armor.com",
+            "metadata": {
+                "description": "Armor only: IP or DNS address of ingestion endpoint."
+            }
+        },
+        "armorPort": {
+            "type": "string",
+            "defaultValue": "5443",
+            "metadata": {
+                "description": "Armor only: TCP port of ingestion endpoint. Defaults to 5443."
+            }
+        },
+        "armorAccountId": {
+            "type": "int",
+            "metadata": {
+                "description": "Armor only: ID for customer account with Armor."
+            }
+        }
+    },
+    "variables": {
+        "functionAppName": "[parameters('appName')]",
+	    "ServicePlan": "[concat('serviceplan', parameters('appName'))]",
+        "Consumption": "[concat('consumption', parameters('appName'))]",
+        "hostingPlanName": "[variables(parameters('appServicePlan'))]",
+        "storageAccountName": "[concat('func', uniquestring(resourceGroup().id))]",
+        "storageAccountid": "[concat(resourceGroup().id,'/providers/','Microsoft.Storage/storageAccounts/', variables('storageAccountName'))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "name": "[variables('storageAccountName')]",
+            "apiVersion": "2015-06-15",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "accountType": "Standard_LRS"
+            }
+        },
+        {
+            "condition": "[equals(parameters('appServicePlan'), 'ServicePlan')]",
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2016-09-01",
+            "name": "[variables('ServicePlan')]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "tier": "[parameters('appServicePlanTier')]",
+                "name": "[parameters('appServicePlanName')]",
+                "capacity": "[parameters('appServicePlanCapacity')]"
+            }
+        },        
+        {
+            "condition": "[equals(parameters('appServicePlan'), 'Consumption')]",
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2016-09-01",
+            "name": "[variables('Consumption')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "name": "[variables('Consumption')]",
+                "computeMode": "Dynamic",
+                "sku": "Dynamic"
+            }
+        },
+        {
+            "apiVersion": "2016-08-01",
+            "type": "Microsoft.Web/sites",
+            "name": "[variables('functionAppName')]",
+            "location": "[resourceGroup().location]",
+            "kind": "functionapp",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+            ],
+            "properties": {
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+                "siteConfig": {
+                    "appSettings": [
+                        {
+                            "name": "AzureWebJobsDashboard",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(variables('storageAccountid'),'2015-05-01-preview').key1)]"
+                        },
+                        {
+                            "name": "AzureWebJobsStorage",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(variables('storageAccountid'),'2015-05-01-preview').key1)]"
+                        },
+                        {
+                            "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(variables('storageAccountid'),'2015-05-01-preview').key1)]"
+                        },
+                        {
+                            "name": "WEBSITE_CONTENTSHARE",
+                            "value": "[toLower(variables('functionAppName'))]"
+                        },
+                        {
+                            "name": "FUNCTIONS_EXTENSION_VERSION",
+                            "value": "~2"
+                        },
+                        {
+                            "name": "WEBSITE_NODE_DEFAULT_VERSION",
+                            "value": "6.5.0"
+                        },
+                        {
+                            "name": "blobContainerName",
+                            "value": "insights-logs-networksecuritygroupflowevent"
+                        },
+                        {
+                            "name": "nsgSourceDataAccount",
+                            "value": "nsgSourceDataConnection"
+                        },
+                        {
+                            "name": "nsgSourceDataConnection",
+                            "value": "[parameters('nsgSourceDataConnection')]"
+                        },
+                        {
+                            "name": "outputBinding",
+                            "value": "[parameters('outputBinding')]"
+                        },
+                        {
+                            "name": "armorAddress",
+                            "value": "[parameters('armorAddress')]"
+                        },
+                        {
+                            "name": "armorPort",
+                            "value": "[parameters('armorPort')]"
+                        },
+                        {
+                            "name": "armorAccountId",
+                            "value": "[parameters('armorAccountId')]"
+                        },
+                        {
+                            "name": "eventHubName",
+                            "value": "[parameters('eventHubName')]"
+                        },
+                        {
+                            "name": "logIncomingJSON",
+                            "value": "false"
+                        },
+                        {
+                            "name": "logOutgoingCEF",
+                            "value": "false"
+                        }
+                    ]
+                }
+            },
+            "resources": [
+                {
+                    "apiVersion": "2016-08-01",
+                    "name": "web",
+                    "type": "sourcecontrols",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Web/Sites', variables('functionAppName'))]"
+                    ],
+                    "properties": {
+                        "RepoUrl": "[parameters('githubRepoURL')]",
+                        "branch": "[parameters('githubRepoBranch')]",
+                        "IsManualIntegration": true
+                    }
+                }
+            ]
+        }
+    ]
+}

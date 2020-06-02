@@ -44,7 +44,7 @@ namespace nsgFunc
             string outputBinding = Util.GetEnvironmentVariable("outputBinding");
             if (outputBinding.Length == 0)
             {
-                log.LogError("Value for outputBinding is required. Permitted values are: 'arcsight', 'splunk', 'eventhub'.");
+                log.LogError("Value for outputBinding is required. Permitted values are: 'armor', 'arcsight', 'splunk', 'eventhub'.");
                 return 0;
             }
 
@@ -89,11 +89,14 @@ namespace nsgFunc
             }
 
             int bytesSent = 0;
-            switch (outputBinding)
+            switch (outputBinding.ToLower())
             {
-                //case "logstash":
-                //    await Util.obLogstash(newClientContent, log);
-                //    break;
+                case "armor":
+                    await Util.ObArmor(newClientContent, log);
+                    break;
+                case "logstash":
+                    await Util.obLogstash(newClientContent, log);
+                    break;
                 case "arcsight":
                     bytesSent = await Util.obArcsightNew(newClientContent, executionContext, cefLogBinder, log);
                     break;
