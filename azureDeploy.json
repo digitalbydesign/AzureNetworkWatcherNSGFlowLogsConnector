@@ -199,10 +199,6 @@
                             "value": "[parameters('armorAccountId')]"
                         },
                         {
-                            "name": "eventHubName",
-                            "value": "[parameters('eventHubName')]"
-                        },
-                        {
                             "name": "logIncomingJSON",
                             "value": "false"
                         },

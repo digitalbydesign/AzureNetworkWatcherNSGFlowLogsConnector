@@ -12,13 +12,12 @@ namespace nsgFunc
     {
         public static async Task obLogstash(string newClientContent, ILogger log)
         {
-            string logstashAddress = Util.GetEnvironmentVariable("logstashAddress");
-            string logstashHttpUser = Util.GetEnvironmentVariable("logstashHttpUser");
-            string logstashHttpPwd = Util.GetEnvironmentVariable("logstashHttpPwd");
+            string armorAddress = Util.GetEnvironmentVariable("armorAddress");
+            string armorPort = Util.GetEnvironmentVariable("armorPort");
 
-            if (logstashAddress.Length == 0 || logstashHttpUser.Length == 0 || logstashHttpPwd.Length == 0)
+            if (armorAddress.Length == 0 || armorPort.Length == 0)
             {
-                log.LogError("Values for logstashAddress, logstashHttpUser and logstashHttpPwd are required.");
+                log.LogError("Values for armorAddress and armorPort are required.");
                 return;
             }
 
@@ -31,13 +30,13 @@ namespace nsgFunc
             // log.Info($"newClientContent: {newClientContent}");
 
             var client = new Util.SingleHttpClientInstance();
-            var creds = Convert.ToBase64String(System.Text.ASCIIEncoding.ASCII.GetBytes(string.Format("{0}:{1}", logstashHttpUser, logstashHttpPwd)));
+            // var creds = Convert.ToBase64String(System.Text.ASCIIEncoding.ASCII.GetBytes(string.Format("{0}:{1}", logstashHttpUser, logstashHttpPwd)));
             try
             {
-                HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Post, logstashAddress);
+                HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Post, armorAddress + ":" + armorPort);
                 req.Headers.Accept.Clear();
                 req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                req.Headers.Add("Authorization", "Basic " + creds);
+                //req.Headers.Add("Authorization", "Basic " + creds);
                 req.Content = new StringContent(newClientContent, Encoding.UTF8, "application/json");
                 HttpResponseMessage response = await Util.SingleHttpClientInstance.SendToLogstash(req, log);
                 if (response.StatusCode != HttpStatusCode.OK)

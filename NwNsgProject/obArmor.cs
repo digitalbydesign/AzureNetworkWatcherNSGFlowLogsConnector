@@ -83,7 +83,7 @@
         /// <returns></returns>
         public static string ConvertToArmorPayload(string newClientContent, ILogger log)
         {
-            var tenantId = GetTenantIdFromEnvironment();
+            var tenantId = GetTenantIdFromEnvironment(log);
 
             var payload = new StringBuilder();
             foreach (var content in bundleMessageListsJson(newClientContent, log))
@@ -98,9 +98,15 @@
         /// Gets the tenant identifier from the Armor Account Id environment variable.
         /// </summary>
         /// <returns></returns>
-        private static int GetTenantIdFromEnvironment()
+        private static int GetTenantIdFromEnvironment( ILogger log)
         {
             var accountId = Util.GetEnvironmentVariable("armorAccountId");
+            if (accountId.Length == 0)
+            {
+                log.LogError("Values for armorAccountId is required.");
+                throw new System.ArgumentNullException("armorAccountId", "Please provide armorAccountId.");
+            }
+
             return int.Parse(accountId);
         }
     }
