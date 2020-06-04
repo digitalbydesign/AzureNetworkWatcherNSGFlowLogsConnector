@@ -12,8 +12,6 @@
     using System.Net.Sockets;
     using NwNsgProject;
 
-    using NwNsgProject;
-
     public partial class Util
     {
         /// <summary>
@@ -27,9 +25,11 @@
             /// <param name="message">The message.</param>
             /// <param name="payload">The payload.</param>
             /// <param name="tenantId">The tenant identifier.</param>
-            public ArmorPayload(string message, string payload, int tenantId)
+            /// <param name="ipFixEncodedLog">IPFIX format encoded string for individual record from `flowTuples`.</param>
+            public ArmorPayload(string message, string payload, int tenantId, string ipFixEncodedLog)
             {
                 Message = message;
+                IpFixEncodedFlowLog = ipFixEncodedLog;
                 Payload = payload;
                 TenantId = tenantId;
                 ExternalId = System.Guid.Parse(tenantId.ToString("D32")).ToString("D");
@@ -52,6 +52,15 @@
             /// </value>
             [JsonProperty("message")]
             public string Message { get; }
+
+            /// <summary>
+            /// Gets IPFIX converted format for individual record from `flowTuples`
+            /// </summary>
+            /// <value>
+            /// The message.
+            /// </value>
+            [JsonProperty("message_encoded")]
+            public string IpFixEncodedFlowLog { get; }
 
             /// <summary>
             /// Gets the payload.
@@ -98,7 +107,9 @@
                                                                                        NullValueHandling = NullValueHandling.Ignore
                                                                                    });
 
-                yield return JsonConvert.SerializeObject(new ArmorPayload(outgoingRecord.Message, outgoingJson, tenantId), Formatting.None);
+                var ipFixEncodedLog = ConvertToIpFixFormat(outgoingRecord, log);
+
+                yield return JsonConvert.SerializeObject(new ArmorPayload(outgoingRecord.Message, outgoingJson, tenantId, ipFixEncodedLog), Formatting.None);
             }
         }
 
