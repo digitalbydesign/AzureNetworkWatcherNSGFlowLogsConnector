@@ -481,11 +481,12 @@ class ArmorDenormalizedRecord : DenormalizedRecord
                                    string resourceId,
                                    string nsgRuleName,
                                    string mac,
-                                   NSGFlowLogTuple tuple)
+                                   NSGFlowLogTuple tuple, string message)
         : base(version, time, category, operationName, resourceId, nsgRuleName, mac, tuple)
     {
+        Message = message;
     }
 
     [JsonIgnore]
-    public string Message { get; set; }
+    public string Message { get; }
 }

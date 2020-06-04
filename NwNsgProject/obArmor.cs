@@ -1,16 +1,14 @@
 ﻿namespace nsgFunc
 {
+    using System;
     using System.Collections.Generic;
-    using System.Linq;
+    using System.Net;
+    using System.Net.Sockets;
+    using System.Threading.Tasks;
 
     using Microsoft.Extensions.Logging;
     using Newtonsoft.Json;
-    using System.Text;
-    using System.Threading.Tasks;
-    using System;
-    using System.Net;
-    using System.Net.Sockets;
-    using NwNsgProject;
+
 
     public partial class Util
     {
@@ -23,16 +21,14 @@
             /// Initializes a new instance of the <see cref="ArmorPayload"/> class.
             /// </summary>
             /// <param name="message">The message.</param>
-            /// <param name="payload">The payload.</param>
+            /// <param name="messageEncoded">IP FIX format encoded string for individual record from `flowTuples`.</param>
             /// <param name="tenantId">The tenant identifier.</param>
-            /// <param name="ipFixEncodedLog">IPFIX format encoded string for individual record from `flowTuples`.</param>
-            public ArmorPayload(string message, string payload, int tenantId, string ipFixEncodedLog)
+            public ArmorPayload(string message, string messageEncoded, int tenantId)
             {
                 Message = message;
-                IpFixEncodedFlowLog = ipFixEncodedLog;
-                Payload = payload;
+                MessageEncoded = messageEncoded;
                 TenantId = tenantId;
-                ExternalId = System.Guid.Parse(tenantId.ToString("D32")).ToString("D");
+                ExternalId = Guid.Parse(tenantId.ToString("D32")).ToString("D");
             }
 
             /// <summary>
@@ -60,7 +56,7 @@
             /// The message.
             /// </value>
             [JsonProperty("message_encoded")]
-            public string IpFixEncodedFlowLog { get; }
+            public string MessageEncoded { get; }
 
             /// <summary>
             /// Gets the payload.
@@ -90,26 +86,24 @@
         
         public static async Task ObArmor(string newClientContent, ILogger log)
         {
+            // TODO: Figure this out
+            // Should this be creating a collection of ipfix packets
+            // and sending that as a single event with the original newClientContent as the message?
+            // It feels like we should send this all as a single event into the eventing platform
+            // and let the processor handle the rest
             foreach (var content in ConvertToArmorPayload(newClientContent, log))
             {
                 await obLogstash(content, log).ConfigureAwait(false);
             }
         }
 
-        static System.Collections.Generic.IEnumerable<string> ConvertToArmorPayload(string newClientContent, ILogger log)
+        public static System.Collections.Generic.IEnumerable<string> ConvertToArmorPayload(string newClientContent, ILogger log)
         {
             var tenantId = GetTenantIdFromEnvironment(log);
             foreach (var content in DenormalizedRecord(newClientContent, log))
             {
-                var outgoingRecord = content.FirstOrDefault();
-                var outgoingJson = JsonConvert.SerializeObject(outgoingRecord, new JsonSerializerSettings
-                                                                                   {
-                                                                                       NullValueHandling = NullValueHandling.Ignore
-                                                                                   });
-
-                var ipFixEncodedLog = ConvertToIpFixFormat(outgoingRecord, log);
-
-                yield return JsonConvert.SerializeObject(new ArmorPayload(outgoingRecord.Message, outgoingJson, tenantId, ipFixEncodedLog), Formatting.None);
+                var ipFixEncodedLog = ConvertToIpFixFormat(content, log);
+                yield return JsonConvert.SerializeObject(new ArmorPayload(content.Message, ipFixEncodedLog, tenantId), Formatting.None);
             }
         }
 
@@ -147,7 +141,7 @@
                             .Field(NetFlowInformationElement.InterfaceName, 65535)
                     ;
 
-                var protocolIdentifier = record.transportProtocol == "U" ? ProtocolType.Udp : ProtocolType.Tcp;
+                var protocolIdentifier = record.transportProtocol == "U" ? (byte)ProtocolType.Udp : (byte)ProtocolType.Tcp;
 
                 // TODO: Need to check how to get count of below since there is source destination values.
                 // Right now getting count based on device direction.
@@ -155,20 +149,20 @@
                 var octetDeltaCount = GetOctetCountFromFlowLog(record, log);
 
                 // TODO: Only startTime in tuple which is in Unix time format (UTC). What would be end seconds?
-                var flowStartSeconds = Convert.ToInt32(record.startTime);
-                var flowEndSeconds = Convert.ToInt32(record.startTime);
+                var flowStartSeconds = Convert.ToUInt32(record.startTime);
+                var flowEndSeconds = Convert.ToUInt32(record.startTime);
 
                 var templateData =
                     new DataFlow(templateDef,
-                        IPAddress.Parse(record.sourceAddress),
-                        Convert.ToUInt16(record.sourcePort),
-                        IPAddress.Parse(record.destinationAddress),
-                        Convert.ToUInt16(record.destinationPort),
-                        Convert.ToByte(protocolIdentifier),
-                        Convert.ToUInt32(packetDeltaCount),
-                        Convert.ToUInt32(octetDeltaCount),
-                        Convert.ToUInt32(flowStartSeconds),
-                        Convert.ToUInt32(flowEndSeconds),
+                        IPAddress.TryParse(record.sourceAddress, out var sourceAddress) ? sourceAddress : IPAddress.Any,
+                        ushort.TryParse(record.sourcePort, out var sourcePort) ? sourcePort : (ushort)0,
+                        IPAddress.TryParse(record.destinationAddress, out var destinationAddress) ? destinationAddress : IPAddress.Any,
+                        ushort.TryParse(record.destinationPort, out var destinationPort) ? destinationPort : (ushort)0,
+                        protocolIdentifier,
+                        packetDeltaCount,
+                        octetDeltaCount,
+                        flowStartSeconds,
+                        flowEndSeconds,
                         record.mac
                     );
 
@@ -196,7 +190,7 @@
 
         }
         
-        private static int GetOctetCountFromFlowLog(DenormalizedRecord record, ILogger log)
+        private static uint GetOctetCountFromFlowLog(DenormalizedRecord record, ILogger log)
         {
             if (!(record.version >= 2.0))
             {
@@ -207,14 +201,14 @@
             if (record.flowState != "B")
             {
                 return record.deviceDirection == "I"
-                    ? Convert.ToInt32(record.bytesStoD)
-                    : Convert.ToInt32(record.bytesDtoS);
+                    ? Convert.ToUInt32(record.bytesStoD)
+                    : Convert.ToUInt32(record.bytesDtoS);
             }
 
             return 0;
         }
 
-        private static int GetPacketCountFromFlowLog(DenormalizedRecord record, ILogger log)
+        private static uint GetPacketCountFromFlowLog(DenormalizedRecord record, ILogger log)
         {
             if (!(record.version >= 2.0))
             {
@@ -225,22 +219,25 @@
             if (record.flowState != "B")
             {
                 return record.deviceDirection == "I"
-                    ? Convert.ToInt32(record.packetsStoD)
-                    : Convert.ToInt32(record.packetsDtoS);
+                    ? Convert.ToUInt32(record.packetsStoD)
+                    : Convert.ToUInt32(record.packetsDtoS);
 
             }
 
             return 0;
         }
 
-        static IEnumerable<List<ArmorDenormalizedRecord>> DenormalizedRecord(string newClientContent, ILogger log)
+        static IEnumerable<ArmorDenormalizedRecord> DenormalizedRecord(string newClientContent, ILogger log)
         {
-            NSGFlowLogRecords logs = JsonConvert.DeserializeObject<NSGFlowLogRecords>(newClientContent);
+            var logs = JsonConvert.DeserializeObject<NSGFlowLogRecords>(newClientContent);
 
             foreach (var record in logs.records)
             {
-                float version = record.properties.Version;
-                var outgoingList = new List<ArmorDenormalizedRecord>();
+                var version = record.properties.Version;
+                var message = JsonConvert.SerializeObject(record, new JsonSerializerSettings
+                {
+                    NullValueHandling = NullValueHandling.Ignore
+                });
 
                 foreach (var outerFlow in record.properties.flows)
                 {
@@ -250,7 +247,7 @@
                         {
                             var tuple = new NSGFlowLogTuple(flowTuple, version);
 
-                            var denormalizedRecord = new ArmorDenormalizedRecord(
+                            yield return new ArmorDenormalizedRecord(
                                 record.properties.Version,
                                 record.time,
                                 record.category,
@@ -258,13 +255,8 @@
                                 record.resourceId,
                                 outerFlow.rule,
                                 innerFlow.mac,
-                                tuple);
-                            outgoingList.Add(denormalizedRecord);
-                            denormalizedRecord.Message = JsonConvert.SerializeObject(record, new JsonSerializerSettings
-                                                                                                 {
-                                                                                                     NullValueHandling = NullValueHandling.Ignore
-                                                                                                 });
-                            yield return outgoingList;
+                                tuple,
+                                message);
                         }
                     }
                 }
@@ -275,16 +267,18 @@
         /// Gets the tenant identifier from the Armor Account Id environment variable.
         /// </summary>
         /// <returns></returns>
-        private static int GetTenantIdFromEnvironment( ILogger log)
+        private static int GetTenantIdFromEnvironment(ILogger log)
         {
-            var accountId = Util.GetEnvironmentVariable("armorAccountId");
-            if (accountId.Length == 0)
+            var accountIdEnvironmentVariable = Util.GetEnvironmentVariable("armorAccountId");
+            if (int.TryParse(accountIdEnvironmentVariable, out var accountId))
             {
-                log.LogError("Values for armorAccountId is required.");
-                throw new System.ArgumentNullException("armorAccountId", "Please provide armorAccountId.");
+                return accountId;
             }
 
-            return int.Parse(accountId);
+            log.LogError(string.IsNullOrWhiteSpace(accountIdEnvironmentVariable)
+                ? "Value for armorAccountId is required."
+                : "Value for armorAccountId must be a natural number.");
+            throw new System.ArgumentNullException("armorAccountId", "Please provide your Armor Account ID as armorAccountId.");
         }
     }
 }

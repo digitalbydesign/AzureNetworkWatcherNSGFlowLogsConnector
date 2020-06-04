@@ -1,4 +1,4 @@
-﻿namespace NwNsgProject
+﻿namespace nsgFunc
 {
     using System;
     using System.Collections.Generic;
@@ -195,14 +195,6 @@
             var index = _data.Length;
             Array.Resize(ref _data, _data.Length + data.Length);
             Array.Copy(data, 0, _data, index, data.Length);
-        }
-    }
-
-    public static class Util
-    {
-        public static uint ToUnixTime(this DateTime dateTime)
-        {
-            return (uint)(dateTime - new DateTime(1970, 1, 1)).TotalSeconds;
         }
     }
 }
