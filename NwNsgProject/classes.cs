@@ -471,3 +471,21 @@ class NSGFlowLogRecords
 {
     public NSGFlowLogRecord[] records { get; set; }
 }
+
+class ArmorDenormalizedRecord : DenormalizedRecord
+{
+    public ArmorDenormalizedRecord(float version,
+                                   string time,
+                                   string category,
+                                   string operationName,
+                                   string resourceId,
+                                   string nsgRuleName,
+                                   string mac,
+                                   NSGFlowLogTuple tuple)
+        : base(version, time, category, operationName, resourceId, nsgRuleName, mac, tuple)
+    {
+    }
+
+    [JsonIgnore]
+    public string Message { get; set; }
+}

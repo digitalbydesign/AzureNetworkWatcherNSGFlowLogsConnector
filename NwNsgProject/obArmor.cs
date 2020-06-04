@@ -1,5 +1,8 @@
 ﻿namespace nsgFunc
 {
+    using System.Collections.Generic;
+    using System.Linq;
+
     using Microsoft.Extensions.Logging;
     using Newtonsoft.Json;
     using System.Text;
@@ -7,6 +10,8 @@
     using System;
     using System.Net;
     using System.Net.Sockets;
+    using NwNsgProject;
+
     using NwNsgProject;
 
     public partial class Util
@@ -73,29 +78,28 @@
         /// <param name="newClientContent">New content of the client.</param>
         /// <param name="log">The log.</param>
         /// <returns></returns>
-        public static Task ObArmor(string newClientContent, ILogger log)
+        
+        public static async Task ObArmor(string newClientContent, ILogger log)
         {
-            //var payload = ConvertToArmorPayload(newClientContent, log);
-            var payload = denormalizedRecord(newClientContent, log);
-            return obLogstash(payload, log);
+            foreach (var content in ConvertToArmorPayload(newClientContent, log))
+            {
+                await obLogstash(content, log).ConfigureAwait(false);
+            }
         }
 
-        /// <summary>
-        /// Converts to Armor payload.
-        /// </summary>
-        /// <param name="newClientContent">New content of the client.</param>
-        /// <param name="log">The log.</param>
-        /// <returns></returns>
-        public static string ConvertToArmorPayload(string content, ILogger log)
+        static System.Collections.Generic.IEnumerable<string> ConvertToArmorPayload(string newClientContent, ILogger log)
         {
             var tenantId = GetTenantIdFromEnvironment(log);
+            foreach (var content in DenormalizedRecord(newClientContent, log))
+            {
+                var outgoingRecord = content.FirstOrDefault();
+                var outgoingJson = JsonConvert.SerializeObject(outgoingRecord, new JsonSerializerSettings
+                                                                                   {
+                                                                                       NullValueHandling = NullValueHandling.Ignore
+                                                                                   });
 
-            var payload = new StringBuilder();
-           
-            payload.AppendLine(content);
-           
-
-            return JsonConvert.SerializeObject(new ArmorPayload(content, payload.ToString(), tenantId), Formatting.None);
+                yield return JsonConvert.SerializeObject(new ArmorPayload(outgoingRecord.Message, outgoingJson, tenantId), Formatting.None);
+            }
         }
 
         /// <summary>
@@ -218,13 +222,14 @@
             return 0;
         }
 
-        static string denormalizedRecord(string newClientContent, ILogger log)
+        static IEnumerable<List<ArmorDenormalizedRecord>> DenormalizedRecord(string newClientContent, ILogger log)
         {
             NSGFlowLogRecords logs = JsonConvert.DeserializeObject<NSGFlowLogRecords>(newClientContent);
 
             foreach (var record in logs.records)
             {
                 float version = record.properties.Version;
+                var outgoingList = new List<ArmorDenormalizedRecord>();
 
                 foreach (var outerFlow in record.properties.flows)
                 {
@@ -234,7 +239,7 @@
                         {
                             var tuple = new NSGFlowLogTuple(flowTuple, version);
 
-                            var denormalizedRecord = new DenormalizedRecord(
+                            var denormalizedRecord = new ArmorDenormalizedRecord(
                                 record.properties.Version,
                                 record.time,
                                 record.category,
@@ -243,18 +248,16 @@
                                 outerFlow.rule,
                                 innerFlow.mac,
                                 tuple);
-
-                            var outgoingJson = JsonConvert.SerializeObject(
-                                denormalizedRecord,
-                                new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
-
-                            return ConvertToArmorPayload(outgoingJson, log);
+                            outgoingList.Add(denormalizedRecord);
+                            denormalizedRecord.Message = JsonConvert.SerializeObject(record, new JsonSerializerSettings
+                                                                                                 {
+                                                                                                     NullValueHandling = NullValueHandling.Ignore
+                                                                                                 });
+                            yield return outgoingList;
                         }
                     }
                 }
             }
-
-            return string.Empty;
         }
 
         /// <summary>
