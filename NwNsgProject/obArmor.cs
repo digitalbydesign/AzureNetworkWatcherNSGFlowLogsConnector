@@ -174,7 +174,7 @@
             }
             catch (Exception ex)
             {
-                log.LogError(ex, "Exception occurred in ConvertToFixFormat {record}", record);
+                log.LogError(ex, "Exception occurred in ConvertToIpFixFormat {record}", record);
             }
 
             return string.Empty;
