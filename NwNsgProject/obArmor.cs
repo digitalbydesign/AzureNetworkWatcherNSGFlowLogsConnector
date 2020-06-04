@@ -71,7 +71,8 @@
         /// <returns></returns>
         public static Task ObArmor(string newClientContent, ILogger log)
         {
-            var payload = ConvertToArmorPayload(newClientContent, log);
+            //var payload = ConvertToArmorPayload(newClientContent, log);
+            var payload = denormalizedRecord(newClientContent, log);
             return obLogstash(payload, log);
         }
 
@@ -81,17 +82,55 @@
         /// <param name="newClientContent">New content of the client.</param>
         /// <param name="log">The log.</param>
         /// <returns></returns>
-        public static string ConvertToArmorPayload(string newClientContent, ILogger log)
+        public static string ConvertToArmorPayload(string content, ILogger log)
         {
             var tenantId = GetTenantIdFromEnvironment(log);
 
             var payload = new StringBuilder();
-            foreach (var content in bundleMessageListsJson(newClientContent, log))
+           
+            payload.AppendLine(content);
+           
+
+            return JsonConvert.SerializeObject(new ArmorPayload(content, payload.ToString(), tenantId), Formatting.None);
+        }
+
+        static string denormalizedRecord(string newClientContent, ILogger log)
+        {
+            NSGFlowLogRecords logs = JsonConvert.DeserializeObject<NSGFlowLogRecords>(newClientContent);
+
+            foreach (var record in logs.records)
             {
-                payload.AppendLine(content);
+                float version = record.properties.Version;
+
+                foreach (var outerFlow in record.properties.flows)
+                {
+                    foreach (var innerFlow in outerFlow.flows)
+                    {
+                        foreach (var flowTuple in innerFlow.flowTuples)
+                        {
+                            var tuple = new NSGFlowLogTuple(flowTuple, version);
+
+                            var denormalizedRecord = new DenormalizedRecord(
+                                record.properties.Version,
+                                record.time,
+                                record.category,
+                                record.operationName,
+                                record.resourceId,
+                                outerFlow.rule,
+                                innerFlow.mac,
+                                tuple);
+
+                            var outgoingJson = JsonConvert.SerializeObject(
+                                denormalizedRecord,
+                                new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+
+                            return ConvertToArmorPayload(outgoingJson, log);
+                        }
+                    }
+                }
             }
 
-            return JsonConvert.SerializeObject(new ArmorPayload(newClientContent, payload.ToString(), tenantId), Formatting.None);
+            return string.Empty;
         }
 
         /// <summary>
