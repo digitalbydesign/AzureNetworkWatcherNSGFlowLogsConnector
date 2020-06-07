@@ -1,5 +1,7 @@
 ﻿namespace nsgFunc
 {
+    using Armor.NetflowExporter;
+
     using System;
     using System.Collections.Generic;
     using System.Net;
@@ -8,7 +10,6 @@
 
     using Microsoft.Extensions.Logging;
     using Newtonsoft.Json;
-
 
     public partial class Util
     {
@@ -27,9 +28,17 @@
             {
                 Message = message;
                 MessageEncoded = messageEncoded;
+                MessageType = "aws-vpc-flows"; //TODO: Need to add NSG Flow Log type once finalized. Right now routing through vpc log.
+                Tags = new[] {"relayed"};
                 TenantId = tenantId;
                 ExternalId = Guid.Parse(tenantId.ToString("D32")).ToString("D");
             }
+
+            [JsonProperty("tags")]
+            public string[] Tags { get; }
+
+            [JsonProperty("type")]
+            public string MessageType { get; }
 
             /// <summary>
             /// Gets the external identifier.
@@ -118,57 +127,69 @@
             try
             {
                 // If global setting for logging is enabled. Log Information for debugging. Will be helpful in investigation.
-                var isLoggingEnabled = Convert.ToBoolean(GetEnvironmentVariable("logIncomingJSON"));
+                var isLoggingEnabled = Convert.ToBoolean(GetEnvironmentVariable("enableDebugLog"));
 
 
                 if (isLoggingEnabled)
                 {
-                    log.LogDebug(
-                        "Start of IPFIX conversion {record}", record);
+                    log.LogInformation(
+                        $"Start of IPFIX conversion record: {JsonConvert.SerializeObject(record)}");
                 }
 
-                var templateDef =
-                        new TemplateFlow(555)
-                            .Field(NetFlowInformationElement.SourceIPv4Address, 4)
-                            .Field(NetFlowInformationElement.SourceTransportPort, 2)
-                            .Field(NetFlowInformationElement.DestinationIPv4Address, 4)
-                            .Field(NetFlowInformationElement.DestinationTransportPort, 2)
-                            .Field(NetFlowInformationElement.ProtocolIdentifier, 1)
-                            .Field(NetFlowInformationElement.PacketDeltaCount, 8)
-                            .Field(NetFlowInformationElement.OctetDeltaCount, 8)
-                            .Field(NetFlowInformationElement.FlowStartSeconds, 4)
-                            .Field(NetFlowInformationElement.FlowEndSeconds, 4)
-                            .Field(NetFlowInformationElement.InterfaceName, 65535)
-                    ;
 
                 var protocolIdentifier = record.transportProtocol == "U" ? (byte)ProtocolType.Udp : (byte)ProtocolType.Tcp;
+                var direction = record.deviceDirection.Equals("I", StringComparison.InvariantCultureIgnoreCase) ? (byte)0 : (byte)1;
 
-                // TODO: Need to check how to get count of below since there is source destination values.
-                // Right now getting count based on device direction.
-                var packetDeltaCount = GetPacketCountFromFlowLog(record, log); 
+                // Based on direction of device get packets and bytes count.
+                var packetDeltaCount = GetPacketCountFromFlowLog(record, log);
                 var octetDeltaCount = GetOctetCountFromFlowLog(record, log);
 
-                // TODO: Only startTime in tuple which is in Unix time format (UTC). What would be end seconds?
+                // Start and End time to be same.
                 var flowStartSeconds = Convert.ToUInt32(record.startTime);
                 var flowEndSeconds = Convert.ToUInt32(record.startTime);
 
-                var templateData =
-                    new DataFlow(templateDef,
-                        IPAddress.TryParse(record.sourceAddress, out var sourceAddress) ? sourceAddress : IPAddress.Any,
-                        ushort.TryParse(record.sourcePort, out var sourcePort) ? sourcePort : (ushort)0,
-                        IPAddress.TryParse(record.destinationAddress, out var destinationAddress) ? destinationAddress : IPAddress.Any,
-                        ushort.TryParse(record.destinationPort, out var destinationPort) ? destinationPort : (ushort)0,
-                        protocolIdentifier,
-                        packetDeltaCount,
-                        octetDeltaCount,
-                        flowStartSeconds,
-                        flowEndSeconds,
-                        record.mac
-                    );
+                // Cisco Netflow v9.
+                var templateDef =
+                        new Armor.NetflowExporter.TemplateFlow(555)
+                            .Field(FieldType.IPV4SourceAddress, 4)
+                            .Field(FieldType.L4SourcePort, 2)
+                            .Field(FieldType.IPV4DestionationAddress, 4)
+                            .Field(FieldType.L4DestionationPort, 2)
+                            .Field(FieldType.Protocol, 1)
+                            .Field(FieldType.InputPackets, 4)
+                            .Field(FieldType.InputBytes, 4)
+                            .Field(FieldType.FirstSwitched, 4)
+                            .Field(FieldType.LastSwitched, 4)
+                            .Field(FieldType.InterfaceName, 50)
+                            .Field(FieldType.Direction, 1)
+                    ;
 
-                var packet = new PacketEncoder();
-                templateData.Generate(packet);
-                var exportData = packet.Data;
+                var templateData =
+                    new TemplateData(templateDef)
+                        .Data(
+                            IPAddress.TryParse(record.sourceAddress, out var sourceAddress)
+                                ? sourceAddress
+                                : IPAddress.Any,
+                            ushort.TryParse(record.sourcePort, out var sourcePort) ? sourcePort : (ushort)0,
+                            IPAddress.TryParse(record.destinationAddress, out var destinationAddress)
+                                ? destinationAddress
+                                : IPAddress.Any,
+                            ushort.TryParse(record.destinationPort, out var destinationPort)
+                                ? destinationPort
+                                : (ushort)0,
+                            protocolIdentifier,
+                            packetDeltaCount,
+                            octetDeltaCount,
+                            flowStartSeconds,
+                            flowEndSeconds,
+                            record.mac,
+                            direction
+                        );
+
+                var exportData =
+                    new ExportPacket(0, 1234)
+                        .Template(templateData)
+                        .GetData(flowStartSeconds);
 
                 var base64Encoded = Convert.ToBase64String(exportData, Base64FormattingOptions.None);
 
@@ -183,13 +204,14 @@
             }
             catch (Exception ex)
             {
-                log.LogError(ex, "Exception occurred in ConvertToIpFixFormat {record}", record);
+                log.LogError(ex,
+                    $"Exception occurred in ConvertToIpFixFormat record: {JsonConvert.SerializeObject(record)}");
             }
 
             return string.Empty;
 
         }
-        
+
         private static uint GetOctetCountFromFlowLog(DenormalizedRecord record, ILogger log)
         {
             if (!(record.version >= 2.0))

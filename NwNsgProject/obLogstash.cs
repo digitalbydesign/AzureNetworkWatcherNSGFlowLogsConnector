@@ -27,6 +27,14 @@ namespace nsgFunc
             new System.Net.Security.RemoteCertificateValidationCallback(
                 delegate { return true; });
 
+            // If global setting for logging is enabled. Log Information for debugging. Will be helpful in investigation.
+            var isLoggingEnabled = Convert.ToBoolean(GetEnvironmentVariable("enableDebugLog"));
+            if (isLoggingEnabled)
+            {
+                log.LogInformation(
+                    $"Payload to be sent to armor logstash: {newClientContent}");
+            }
+
             // log.Info($"newClientContent: {newClientContent}");
 
             var client = new Util.SingleHttpClientInstance();

@@ -8,7 +8,7 @@
                 "description": "The name of the function app that you wish to create."
             }
         },
-        "appServicePlan" : {
+        "appServicePlan": {
             "type": "string",
             "defaultValue": "ServicePlan",
             "allowedValues": [
@@ -52,7 +52,7 @@
         "githubRepoBranch": {
             "type": "string",
             "defaultValue": "feature/armor"
-        },        
+        },
         "nsgSourceDataConnection": {
             "type": "string",
             "metadata": {
@@ -92,7 +92,7 @@
     },
     "variables": {
         "functionAppName": "[parameters('appName')]",
-	    "ServicePlan": "[concat('serviceplan', parameters('appName'))]",
+        "ServicePlan": "[concat('serviceplan', parameters('appName'))]",
         "Consumption": "[concat('consumption', parameters('appName'))]",
         "hostingPlanName": "[variables(parameters('appServicePlan'))]",
         "storageAccountName": "[concat('func', uniquestring(resourceGroup().id))]",
@@ -119,7 +119,7 @@
                 "name": "[parameters('appServicePlanName')]",
                 "capacity": "[parameters('appServicePlanCapacity')]"
             }
-        },        
+        },
         {
             "condition": "[equals(parameters('appServicePlan'), 'Consumption')]",
             "type": "Microsoft.Web/serverfarms",
@@ -200,6 +200,10 @@
                         },
                         {
                             "name": "logIncomingJSON",
+                            "value": "false"
+                        },
+                        {
+                            "name": "enableDebugLog",
                             "value": "false"
                         },
                         {
