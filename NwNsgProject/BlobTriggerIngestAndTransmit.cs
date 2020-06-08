@@ -52,7 +52,7 @@ namespace nsgFunc
             var blobDetails = new BlobDetails(subId, resourceGroup, nsgName, blobYear, blobMonth, blobDay, blobHour, blobMinute, mac);
 
             // get checkpoint
-            Checkpoint checkpoint = Checkpoint.GetCheckpoint(blobDetails, checkpointTable);
+            Checkpoint checkpoint = Checkpoint.GetCheckpoint(blobDetails, checkpointTable,log);
 
             var blockList = myBlob.DownloadBlockListAsync().Result;
             var startingByte = blockList.Where((item, index) => index<checkpoint.CheckpointIndex).Sum(item => item.Length);
@@ -121,7 +121,7 @@ namespace nsgFunc
                 throw ex;
             }
 
-            checkpoint.PutCheckpoint(checkpointTable, blockList.Count()-1);
+            checkpoint.PutCheckpoint(checkpointTable, blockList.Count()-1,log);
         }
     }
 }
