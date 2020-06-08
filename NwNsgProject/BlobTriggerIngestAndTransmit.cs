@@ -21,7 +21,12 @@ namespace nsgFunc
             ExecutionContext executionContext,
             ILogger log)
         {
-            log.LogDebug($"BlobTriggerIngestAndTransmit triggered: {executionContext.InvocationId} ");
+            var enableDebugLog = Convert.ToBoolean(System.Environment.GetEnvironmentVariable("enableDebugLog", System.EnvironmentVariableTarget.Process));
+
+            if (enableDebugLog)
+            {
+                log.LogInformation($"BlobTriggerIngestAndTransmit triggered: {executionContext.InvocationId} ");
+            }
 
             string nsgSourceDataAccount = Util.GetEnvironmentVariable("nsgSourceDataAccount");
             if (nsgSourceDataAccount.Length == 0)
@@ -54,7 +59,11 @@ namespace nsgFunc
             var endingByte = blockList.Where((item, index) => index < blockList.Count()-1).Sum(item => item.Length);
             var dataLength = endingByte - startingByte;
 
-            log.LogDebug("Blob: {0}, starting byte: {1}, ending byte: {2}, number of bytes: {3}", blobDetails.ToString(), startingByte, endingByte, dataLength);
+            if (enableDebugLog)
+            {
+                log.LogInformation("Blob: {0}, starting byte: {1}, ending byte: {2}, number of bytes: {3}", blobDetails.ToString(), startingByte, endingByte, dataLength);
+            }
+            
 
             if (dataLength == 0)
             {
