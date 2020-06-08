@@ -40,6 +40,7 @@ namespace nsgFunc
                     checkpoint.CheckpointIndex = 1;
                 }
 
+                log.LogInformation($"GetCheckpoint triggered:{checkpoint}");
                 return checkpoint;
             }
             catch (Exception ex)
@@ -53,6 +54,8 @@ namespace nsgFunc
         {
             try
             {
+                log.LogInformation($"PutCheckpoint triggered");
+
                 CheckpointIndex = index;
 
                 TableOperation operation = TableOperation.InsertOrReplace(this);
