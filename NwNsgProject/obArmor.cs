@@ -13,6 +13,13 @@
 
     public partial class Util
     {
+        // ReSharper disable InconsistentNaming
+       
+        // If global setting for logging is enabled. Log Information for debugging. Will be helpful in investigation.
+        private static readonly bool ENABLE_DEBUG_LOG = Convert.ToBoolean(GetEnvironmentVariable("enableDebugLog"));
+       
+        // ReSharper restore InconsistentNaming
+
         /// <summary>
         /// The payload that will be sent to Armor for ingestion into the event pipeline
         /// </summary>
@@ -29,7 +36,7 @@
                 Message = message;
                 MessageEncoded = messageEncoded;
                 MessageType = "aws-vpc-flows"; //TODO: Need to add NSG Flow Log type once finalized. Right now routing through vpc log.
-                Tags = new[] {"relayed"};
+                Tags = new[] { "relayed" };
                 TenantId = tenantId;
                 ExternalId = Guid.Parse(tenantId.ToString("D32")).ToString("D");
             }
@@ -92,7 +99,7 @@
         /// <param name="newClientContent">New content of the client.</param>
         /// <param name="log">The log.</param>
         /// <returns></returns>
-        
+
         public static async Task ObArmor(string newClientContent, ILogger log)
         {
             // TODO: Figure this out
@@ -126,19 +133,31 @@
         {
             try
             {
-                // If global setting for logging is enabled. Log Information for debugging. Will be helpful in investigation.
-                var isLoggingEnabled = Convert.ToBoolean(GetEnvironmentVariable("enableDebugLog"));
-
-
-                if (isLoggingEnabled)
+                if (ENABLE_DEBUG_LOG)
                 {
                     log.LogInformation(
-                        $"Start of IPFIX conversion record: {JsonConvert.SerializeObject(record)}");
+                        $"Start of IP FIX conversion record: {JsonConvert.SerializeObject(record)}");
                 }
 
+                var protocolIdentifier =
+                    record.transportProtocol == "U" ? (byte) ProtocolType.Udp : (byte) ProtocolType.Tcp;
 
-                var protocolIdentifier = record.transportProtocol == "U" ? (byte)ProtocolType.Udp : (byte)ProtocolType.Tcp;
-                var direction = record.deviceDirection.Equals("I", StringComparison.InvariantCultureIgnoreCase) ? (byte)0 : (byte)1;
+                var direction = record.deviceDirection.Equals("I", StringComparison.InvariantCultureIgnoreCase)
+                    ? (byte)0 // 0 - ingress flow
+                    : (byte) 1; // 1 - egress flow
+
+                // Initialize packets and bytes for FieldType.
+                // Default to Input as this is mandatory and if not version 2 then zero is passed for packet and byte.
+                var packetsType = FieldType.InputPackets;
+                var bytesType = FieldType.InputBytes;
+
+                // Only version above 2 has packets and bytes (input/output). 
+                if (record.version >= 2.0 && record.flowState != "B" && record.deviceDirection == "O")
+                {
+                    // If device direction is Input, assign appropriate FieldType.
+                    packetsType = FieldType.OutputPackets;
+                    bytesType = FieldType.OutputBytes;
+                }
 
                 // Based on direction of device get packets and bytes count.
                 var packetDeltaCount = GetPacketCountFromFlowLog(record, log);
@@ -156,8 +175,8 @@
                             .Field(FieldType.IPV4DestionationAddress, 4)
                             .Field(FieldType.L4DestionationPort, 2)
                             .Field(FieldType.Protocol, 1)
-                            .Field(FieldType.InputPackets, 4)
-                            .Field(FieldType.InputBytes, 4)
+                            .Field(packetsType, 4)
+                            .Field(bytesType, 4)
                             .Field(FieldType.FirstSwitched, 4)
                             .Field(FieldType.LastSwitched, 4)
                             .Field(FieldType.InterfaceName, 50)
@@ -170,13 +189,13 @@
                             IPAddress.TryParse(record.sourceAddress, out var sourceAddress)
                                 ? sourceAddress
                                 : IPAddress.Any,
-                            ushort.TryParse(record.sourcePort, out var sourcePort) ? sourcePort : (ushort)0,
+                            ushort.TryParse(record.sourcePort, out var sourcePort) ? sourcePort : (ushort) 0,
                             IPAddress.TryParse(record.destinationAddress, out var destinationAddress)
                                 ? destinationAddress
                                 : IPAddress.Any,
                             ushort.TryParse(record.destinationPort, out var destinationPort)
                                 ? destinationPort
-                                : (ushort)0,
+                                : (ushort) 0,
                             protocolIdentifier,
                             packetDeltaCount,
                             octetDeltaCount,
@@ -193,19 +212,19 @@
 
                 var base64Encoded = Convert.ToBase64String(exportData, Base64FormattingOptions.None);
 
-                if (isLoggingEnabled)
+                if (ENABLE_DEBUG_LOG)
                 {
                     // https://stackoverflow.com/questions/5666413/ipfix-data-over-udp-to-c-sharp-can-i-decode-the-data
-                    log.LogDebug(
-                        "End of IPFIX conversion {base64Encoded}", base64Encoded);
+                    log.LogInformation(
+                        "End of IP FIX conversion {base64Encoded}", base64Encoded);
                 }
 
                 return base64Encoded;
             }
             catch (Exception ex)
             {
-                log.LogError(ex,
-                    $"Exception occurred in ConvertToIpFixFormat record: {JsonConvert.SerializeObject(record)}");
+                log.LogError(
+                    $"Exception occurred in ConvertToIpFixFormat record: {JsonConvert.SerializeObject(record)} and exception: {ex}");
             }
 
             return string.Empty;

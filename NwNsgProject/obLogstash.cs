@@ -28,8 +28,7 @@ namespace nsgFunc
                 delegate { return true; });
 
             // If global setting for logging is enabled. Log Information for debugging. Will be helpful in investigation.
-            var isLoggingEnabled = Convert.ToBoolean(GetEnvironmentVariable("enableDebugLog"));
-            if (isLoggingEnabled)
+            if (ENABLE_DEBUG_LOG)
             {
                 log.LogInformation(
                     $"Payload to be sent to armor logstash: {newClientContent}");
