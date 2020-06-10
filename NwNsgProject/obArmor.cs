@@ -148,15 +148,15 @@
 
                 // Initialize packets and bytes for FieldType.
                 // Default to Input as this is mandatory and if not version 2 then zero is passed for packet and byte.
-                var packetsType = FieldType.InputPackets;
-                var bytesType = FieldType.InputBytes;
+                var packetsType = NetFlowInformationElement.InputPackets;
+                var bytesType = NetFlowInformationElement.InputBytes;
 
                 // Only version above 2 has packets and bytes (input/output). 
                 if (record.version >= 2.0 && record.flowState != "B" && record.deviceDirection == "O")
                 {
                     // If device direction is Input, assign appropriate FieldType.
-                    packetsType = FieldType.OutputPackets;
-                    bytesType = FieldType.OutputBytes;
+                    packetsType = NetFlowInformationElement.OutputPackets;
+                    bytesType = NetFlowInformationElement.OutputBytes;
                 }
 
                 // Based on direction of device get packets and bytes count.
@@ -169,19 +169,19 @@
 
                 // Cisco Netflow v9.
                 var templateDef =
-                        new Armor.NetflowExporter.TemplateFlow(555)
-                            .Field(FieldType.IPV4SourceAddress, 4)
-                            .Field(FieldType.L4SourcePort, 2)
-                            .Field(FieldType.IPV4DestionationAddress, 4)
-                            .Field(FieldType.L4DestionationPort, 2)
-                            .Field(FieldType.Protocol, 1)
-                            .Field(packetsType, 4)
-                            .Field(bytesType, 4)
-                            .Field(FieldType.FirstSwitched, 4)
-                            .Field(FieldType.LastSwitched, 4)
-                            .Field(FieldType.InterfaceName, 50)
-                            .Field(FieldType.Direction, 1)
-                    ;
+                    new TemplateFlow(555)
+                        .Field(NetFlowInformationElement.IPV4SourceAddress, 4)
+                        .Field(NetFlowInformationElement.L4SourcePort, 2)
+                        .Field(NetFlowInformationElement.IPV4DestionationAddress, 4)
+                        .Field(NetFlowInformationElement.L4DestionationPort, 2)
+                        .Field(NetFlowInformationElement.Protocol, 1)
+                        .Field(packetsType, 4)
+                        .Field(bytesType, 4)
+                        .Field(NetFlowInformationElement.FirstSwitched, 4)
+                        .Field(NetFlowInformationElement.LastSwitched, 4)
+                        .Field(NetFlowInformationElement.InterfaceName, 50)
+                        .Field(NetFlowInformationElement.Direction, 1);
+
 
                 var templateData =
                     new TemplateData(templateDef)

@@ -105,25 +105,133 @@
 
         public byte[] ToBytes(NetFlowElement element, object value)
         {
+
             switch (Type.GetTypeCode(value.GetType()))
             {
                 case TypeCode.UInt32:
-                    return BitConverter.GetBytes((uint) value).Reverse().ToArray();
+                    {
+                        var data = BitConverter.GetBytes((UInt32)value);
+                        Array.Reverse(data);
+                        return data;
+                    }
                 case TypeCode.UInt16:
-                    return BitConverter.GetBytes((ushort) value).Reverse().ToArray();
+                    {
+                        var data = BitConverter.GetBytes((UInt16)value);
+                        Array.Reverse(data);
+                        return data;
+                    }
                 case TypeCode.Byte:
-                    return new[] {(byte) value};
-                case TypeCode.String when ((string) value).Length > element.Size:
-                    throw new ArgumentException($"Invalid length of string:{((string)value).Length} expected:{element.Size}");
+                    {
+                        var data = new byte[1];
+                        data[0] = (byte)value;
+                        return data;
+                    }
+
                 case TypeCode.String:
-                {
-                    return ((string) value).ToCharArray().Select(x => (byte)x).ToArray();
-                }
-                case TypeCode.Object when value is IPAddress address:
-                    return address.GetAddressBytes();
-                default:
-                    throw new ArgumentException("Invalid value provided.");
+                    {
+                        if (((string)value).Length > element.Size)
+                        {
+                            throw new ArgumentException($"Invalid length of string:{((string)value).Length} expected:{element.Size}");
+                        }
+
+                        var data = new byte[element.Size];
+                        var charData = ((string)value).ToCharArray();
+                        Buffer.BlockCopy(charData, 0, data, 0, Math.Min(charData.Length, data.Length));
+                        return data;
+                    }
+
+                case TypeCode.Object:
+                    {
+                        if (value is IPAddress)
+                        {
+                            var data = ((IPAddress)value).GetAddressBytes();
+                            return data;
+                        }
+                    }
+                    break;
             }
+
+            throw new ArgumentException("Invalid value provided.");
+        }
+    }
+
+    public class TemplateData
+    {
+        private readonly TemplateFlow _template;
+        private readonly List<DataFlow> _data = new List<DataFlow>();
+
+        public TemplateData(TemplateFlow template)
+        {
+            _template = template;
+        }
+
+        public ushort DataCount => (ushort)_data.Count;
+
+        public void AddData(params object[] values)
+        {
+            _data.Add(new DataFlow(_template, values));
+        }
+
+        public TemplateData Data(params object[] values)
+        {
+            AddData(values);
+            return this;
+        }
+
+        public void Generate(PacketEncoder packet)
+        {
+            _template.Generate(packet);
+            foreach (var data in _data)
+            {
+                data.Generate(packet);
+            }
+        }
+    }
+
+    public class ExportPacket
+    {
+        private readonly ushort _sequence;
+        private readonly ushort _sourceId;
+        private readonly List<TemplateData> _dataFlows = new List<TemplateData>();
+
+        public ExportPacket(ushort sequence, ushort sourceId)
+        {
+            _sequence = sequence;
+            _sourceId = sourceId;
+        }
+
+        public ExportPacket Template(TemplateData dataFlow)
+        {
+            Add(dataFlow);
+            return this;
+        }
+
+        public void Add(TemplateData dataFlow)
+        {
+            _dataFlows.Add(dataFlow);
+        }
+
+        public void Generate(PacketEncoder packet, uint unixSeconds)
+        {
+            var count = (ushort)_dataFlows.Sum(x => 1 + x.DataCount);
+            packet.AddInt16(9);  // Version
+            packet.AddInt16(count); //Number of Flow sets
+            packet.AddInt32(unixSeconds); //sysUpTime
+            packet.AddInt32(unixSeconds); // UNIX Secs
+            packet.AddInt32(_sequence); // sequence number
+            packet.AddInt32(_sourceId); // source id
+
+            foreach (var dataFlow in _dataFlows)
+            {
+                dataFlow.Generate(packet);
+            }
+        }
+
+        public byte[] GetData(uint unixSeconds)
+        {
+            var packet = new PacketEncoder();
+            Generate(packet, unixSeconds);
+            return packet.Data;
         }
     }
 
@@ -156,17 +264,100 @@
     [SuppressMessage("ReSharper", "IdentifierTypo")]
     public enum NetFlowInformationElement : ushort
     {
-        Unknown = 0,
-        OctetDeltaCount = 1,
-        PacketDeltaCount = 2,
-        ProtocolIdentifier = 4,
-        SourceTransportPort = 7,
-        SourceIPv4Address = 8,
-        DestinationTransportPort = 11,
-        DestinationIPv4Address = 12,
+        UNKNOWN = 0,
+        InputBytes = 1,
+        InputPackets = 2,
+        Flows = 3,
+        Protocol = 4,
+        SourceTypeOfService = 5,
+        TcpFlags = 6,
+        L4SourcePort = 7,
+        IPV4SourceAddress = 8,
+        SourceMask = 9,
+        InputSNMP = 10,
+        L4DestionationPort = 11,
+        IPV4DestionationAddress = 12,
+        DestionationMask = 13,
+        OoutputSNMP = 14,
+        IPV4NextHop = 15,
+        SourceAS = 16,
+        DestionationAS = 17,
+        BgpIPV4NextHop = 18,
+        MulticastDestionationPackets = 19,
+        MulticastDestionationBytes = 20,
+        LastSwitched = 21,
+        FirstSwitched = 22,
+        OutputBytes = 23,
+        OutputPackets = 24,
+        MinPacketLength = 25,
+        MaxPacketLength = 26,
+        IPV6SourceAddress = 27,
+        IPV6DestionationAddress = 28,
+        IPV6SourceMask = 29,
+        IPV6DestionationMask = 30,
+        IPV6FlowLabel = 31,
+        IcmpType = 32,
+        MulticastIgmpType = 33,
+        SamplingInterval = 34,
+        SamplingAlgorithm = 35,
+        FlowActiveTimeout = 36,
+        FlowInactiveTimeout = 37,
+        EngineType = 38,
+        EngineId = 39,
+        TotalBytesExported = 40,
+        TotalPacketsExported = 41,
+        TotalFlowsExported = 42,
+        IPV4SourcePrefix = 44,
+        IPV4DestionationPrefix = 45,
+        MplsTopLabelType = 46,
+        MplsTopLabelIpAddress = 47,
+        FlowSamplerId = 48,
+        FlowSamplerMode = 49,
+        FlowSamplerRandomInterval = 50,
+        MinTtl = 52,
+        MaxTtl = 53,
+        IPV4Ident = 54,
+        DestionatioTypeOfService = 55,
+        InputSourceMAC = 56,
+        OutputDestionation_MAC = 57,
+        SourceVLAN = 58,
+        DestionationVLAN = 59,
+        IpProtocolVersion = 60,
+        Direction = 61,
+        IPV6NextHop = 62,
+        BpgIPV6NextHop = 63,
+        IPV6OptionHeaders = 64,
+        MplsLabel1 = 70,
+        MplsLabel2 = 71,
+        MplsLabel3 = 72,
+        MplsLabel4 = 73,
+        MplsLabel5 = 74,
+        MplsLabel6 = 75,
+        MplsLabel7 = 76,
+        MplsLabel8 = 77,
+        MplsLabel9 = 78,
+        MplsLabel10 = 79,
+        InputDestionationMac = 80,
+        OutputSourceMac = 81,
         InterfaceName = 82,
-        FlowStartSeconds = 150,
-        FlowEndSeconds = 151
+        InterfaceDescription = 83,
+        SamplerName = 84,
+        InputPermanentBytes = 85,
+        InputPermanentPackets = 86,
+        FragmentOffset = 88,
+        ForwardingStatus = 89,
+        MplsPalRouteDistinguisher = 90,
+        MplsPrefixLength = 91,
+        SourceTrafficIndex = 92,
+        DestionationTrafficIndex = 93,
+        ApplicationDescription = 94,
+        ApplicationTag = 95,
+        ApplicationName = 96,
+        PostIpDiffServCodePoint = 98,
+        ReplicationFactor = 99,
+        L2PacketSectionOffset = 102,
+        L2PacketSectionSize = 103,
+        L2packetSectionData = 104
     }
 
     public class PacketEncoder
