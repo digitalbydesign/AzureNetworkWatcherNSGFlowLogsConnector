@@ -1,7 +1,5 @@
 ﻿namespace nsgFunc
 {
-    using Armor.NetflowExporter;
-
     using System;
     using System.Collections.Generic;
     using System.Net;
