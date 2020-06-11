@@ -472,21 +472,23 @@ class NSGFlowLogRecords
     public NSGFlowLogRecord[] records { get; set; }
 }
 
-class ArmorDenormalizedRecord : DenormalizedRecord
+class ArmorRecord
 {
-    public ArmorDenormalizedRecord(float version,
-                                   string time,
-                                   string category,
-                                   string operationName,
-                                   string resourceId,
-                                   string nsgRuleName,
-                                   string mac,
-                                   NSGFlowLogTuple tuple, string message)
-        : base(version, time, category, operationName, resourceId, nsgRuleName, mac, tuple)
+    public string Message;
+    public ArmorRecord(string record)
     {
-        Message = message;
+        EventUuId = Guid.NewGuid().ToString();
+        Records = new List<DenormalizedRecord>();
+        Message = record;
     }
 
-    [JsonIgnore]
-    public string Message { get; }
+    /// <summary>
+    /// Gets the EventUuId.
+    /// </summary>
+    /// <value>
+    /// The unique identifier. Also helpful if Debug log is enabled to track each log.
+    /// </value>
+    public string EventUuId { get; }
+    
+    public List<DenormalizedRecord> Records { get; set; }
 }

@@ -88,6 +88,12 @@
             "metadata": {
                 "description": "Armor only: ID for customer account with Armor."
             }
+        },
+        "armorExternalId": {
+            "type": "string",
+            "metadata": {
+                "description": "Armor only: External Id of customer account with Armor."
+            }
         }
     },
     "variables": {
@@ -197,6 +203,10 @@
                         {
                             "name": "armorAccountId",
                             "value": "[parameters('armorAccountId')]"
+                        },
+                        {
+                            "name": "armorExternalId",
+                            "value": "[parameters('armorExternalId')]"
                         },
                         {
                             "name": "logIncomingJSON",

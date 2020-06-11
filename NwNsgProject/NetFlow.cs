@@ -211,13 +211,13 @@
             _dataFlows.Add(dataFlow);
         }
 
-        public void Generate(PacketEncoder packet, uint unixSeconds)
+        public void Generate(PacketEncoder packet)
         {
             var count = (ushort)_dataFlows.Sum(x => 1 + x.DataCount);
             packet.AddInt16(9);  // Version
             packet.AddInt16(count); //Number of Flow sets
-            packet.AddInt32(unixSeconds); //sysUpTime
-            packet.AddInt32(unixSeconds); // UNIX Secs
+            packet.AddInt32(GetUpTimeMs()); //sysUpTime
+            packet.AddInt32(GetEpoch()); // UNIX Secs
             packet.AddInt32(_sequence); // sequence number
             packet.AddInt32(_sourceId); // source id
 
@@ -227,11 +227,21 @@
             }
         }
 
-        public byte[] GetData(uint unixSeconds)
+        public byte[] GetData()
         {
             var packet = new PacketEncoder();
-            Generate(packet, unixSeconds);
+            Generate(packet);
             return packet.Data;
+        }
+
+        public uint GetEpoch()
+        {
+            return (uint)(DateTime.Now - new DateTime(1970, 1, 1)).TotalSeconds;
+        }
+
+        public uint GetUpTimeMs()
+        {
+            return (uint)Environment.TickCount;
         }
     }
 
