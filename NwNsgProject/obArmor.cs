@@ -30,17 +30,14 @@
             /// <param name="message">The message.</param>
             /// <param name="messageEncoded">IP FIX format encoded string for individual record from `flowTuples`.</param>
             /// <param name="tenantId">The tenant identifier.</param>
-            /// <param name="externalId">The armor external id for particular account.</param>
-            /// <param name="eventUuId">A unique guid create to process each record.</param>
-            public ArmorPayload(string message, string messageEncoded, int tenantId, string externalId, string eventUuId)
+            public ArmorPayload(string message, string messageEncoded, int tenantId)
             {
                 Message = message;
                 MessageEncoded = messageEncoded;
                 MessageType = "aws-vpc-flows"; //TODO: Need to add NSG Flow Log type once finalized. Right now routing through vpc log.
                 Tags = new[] { "relayed" };
                 TenantId = tenantId;
-                ExternalId = externalId; // Guid.Parse(tenantId.ToString("D32")).ToString("D");
-                EventUuId = eventUuId;
+                ExternalId = Guid.Parse(tenantId.ToString("D32")).ToString("D");
             }
 
             [JsonProperty("tags")]
@@ -77,13 +74,13 @@
             public string MessageEncoded { get; }
 
             /// <summary>
-            /// Gets the event_uuid.
+            /// Gets the payload.
             /// </summary>
             /// <value>
-            /// The unique identifier.
+            /// The payload.
             /// </value>
-            [JsonProperty("event_uuid")]
-            public string EventUuId { get; }
+            [JsonProperty("payload")]
+            public string Payload { get; }
 
             /// <summary>
             /// Gets or sets the tenant identifier.
@@ -118,13 +115,12 @@
         public static System.Collections.Generic.IEnumerable<string> ConvertToArmorPayload(string newClientContent, ILogger log)
         {
             var tenantId = GetTenantIdFromEnvironment(log);
-            var externalId = GetExternalIdFromEnvironment(log);
 
             foreach (var armorRecord in DenormalizedRecord(newClientContent))
             {
-                var ipFixEncodedLog = ConvertToIpFixFormat(armorRecord.Records, armorRecord.EventUuId, log);
+                var ipFixEncodedLog = ConvertToIpFixFormat(armorRecord.Records, log);
                 yield return JsonConvert.SerializeObject(
-                    new ArmorPayload(armorRecord.Message, ipFixEncodedLog, tenantId, externalId,armorRecord.EventUuId),
+                    new ArmorPayload(armorRecord.Message, ipFixEncodedLog, tenantId),
                     Formatting.None);
             }
         }
@@ -135,7 +131,7 @@
         /// <param name="denormalizedRecords">Collection of flowTuples from each record.</param>
         /// <param name="log">ILogger for logging.</param>
         /// <returns>Base64 encoded string of byte array.</returns>
-        private static string ConvertToIpFixFormat(IEnumerable<DenormalizedRecord> denormalizedRecords, string eventUuid, ILogger log)
+        private static string ConvertToIpFixFormat(IEnumerable<DenormalizedRecord> denormalizedRecords, ILogger log)
         {
             try
             {
@@ -144,8 +140,7 @@
                 if (ENABLE_DEBUG_LOG)
                 {
                     log.LogInformation(
-                        $"Start of IP FIX conversion with EventUuid: {eventUuid} " +
-                        $" flowTuples count: {records.Count} and record: {JsonConvert.SerializeObject(records)}");
+                        $"Start of IP FIX conversion flowTuples count: {records.Count} and record: {JsonConvert.SerializeObject(records)}");
                 }
 
                 if (records.Count <= 0)
@@ -218,7 +213,7 @@
                 {
                     // https://stackoverflow.com/questions/5666413/ipfix-data-over-udp-to-c-sharp-can-i-decode-the-data
                     log.LogInformation(
-                        $"End of IP FIX conversion with EventUuid: {eventUuid} and ipFixEncodedLog: {base64Encoded}");
+                        $"End of IP FIX conversion ipFixEncodedLog: {base64Encoded}");
                 }
 
                 return base64Encoded;
@@ -226,8 +221,7 @@
             catch (Exception ex)
             {
                 log.LogError(
-                    $"Exception occurred in ConvertToIpFixFormat EventUuid: {eventUuid} " +
-                    $"records: {JsonConvert.SerializeObject(denormalizedRecords)} and exception: {ex}");
+                    $"Exception occurred in ConvertToIpFixFormat records: {JsonConvert.SerializeObject(denormalizedRecords)} and exception: {ex}");
             }
 
             return string.Empty;
@@ -327,26 +321,6 @@
                 ? "Value for armorAccountId is required."
                 : "Value for armorAccountId must be a natural number.");
             throw new System.ArgumentNullException("armorAccountId", "Please provide your Armor Account ID as armorAccountId.");
-        }
-
-        /// <summary>
-        /// Gets the external id from the Armor Account Id environment variable.
-        /// </summary>
-        /// <returns></returns>
-        private static string GetExternalIdFromEnvironment(ILogger log)
-        {
-            var externalIdEnvironmentVariable = Util.GetEnvironmentVariable("armorExternalId");
-
-            if (!string.IsNullOrWhiteSpace(externalIdEnvironmentVariable))
-            {
-                return externalIdEnvironmentVariable;
-            }
-
-            log.LogError(string.IsNullOrWhiteSpace(externalIdEnvironmentVariable)
-                ? "Value for armorExternalId is required."
-                : "Value for armorExternalId cannot contain white space.");
-
-            throw new System.ArgumentNullException("armorExternalId", "Please provide your Armor External ID as armorExternalId.");
         }
     }
 }

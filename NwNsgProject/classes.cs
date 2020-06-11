@@ -477,18 +477,9 @@ class ArmorRecord
     public string Message;
     public ArmorRecord(string record)
     {
-        EventUuId = Guid.NewGuid().ToString();
         Records = new List<DenormalizedRecord>();
         Message = record;
     }
-
-    /// <summary>
-    /// Gets the EventUuId.
-    /// </summary>
-    /// <value>
-    /// The unique identifier. Also helpful if Debug log is enabled to track each log.
-    /// </value>
-    public string EventUuId { get; }
     
     public List<DenormalizedRecord> Records { get; set; }
 }
