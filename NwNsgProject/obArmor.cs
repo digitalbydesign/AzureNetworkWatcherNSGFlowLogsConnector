@@ -14,7 +14,7 @@
         // ReSharper disable InconsistentNaming
        
         // If global setting for logging is enabled. Log Information for debugging. Will be helpful in investigation.
-        private static readonly bool ENABLE_DEBUG_LOG = Convert.ToBoolean(GetEnvironmentVariable("enableDebugLog"));
+        private static readonly bool ENABLE_DEBUG_LOG = bool.TryParse(GetEnvironmentVariable("enableDebugLog"), out var result) && result;
        
         // ReSharper restore InconsistentNaming
 
