@@ -14,7 +14,6 @@ The steps to fully implement the Azure Network Watcher NSG Flow Logs Connector a
 * Authenticate to the Azure Portal (if necessary)
 * Fill in the form with the setting values
 * Wait a few minutes for the function to be created and deployed
-* In the UI of your monitoring tool (Armor), query for the records that are being sent over.
 
 ## Settings
 
