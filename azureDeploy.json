@@ -3,24 +3,23 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
         "appName": {
-            "type": "string",
+            "type": "String",
             "metadata": {
                 "description": "The name of the function app that you wish to create."
             }
         },
         "appServicePlan": {
-            "type": "string",
             "defaultValue": "ServicePlan",
             "allowedValues": [
                 "ServicePlan",
                 "Consumption"
             ],
+            "type": "String",
             "metadata": {
                 "description": "ServicePlan creates an App Service Plan and is billed according to that plan. Consumption bills according to https://azure.microsoft.com/en-gb/pricing/details/functions/."
             }
         },
         "appServicePlanTier": {
-            "type": "string",
             "allowedValues": [
                 "Free",
                 "Shared",
@@ -29,64 +28,94 @@
                 "Premium",
                 "Isolated"
             ],
-            "defaultValue": "",
+            "type": "String",
             "metadata": {
                 "description": "ServicePlan only: See here for details: https://azure.microsoft.com/en-us/pricing/details/app-service/windows/"
             }
         },
         "appServicePlanName": {
-            "type": "string",
             "defaultValue": "",
+            "type": "String",
             "metadata": {
                 "description": "ServicePlan only: Plan name must match with plan tier. See here for details: https://azure.microsoft.com/en-us/pricing/details/app-service/windows/"
             }
         },
         "appServicePlanCapacity": {
-            "type": "int",
-            "defaultValue": 2
+            "type": "Int"
         },
         "githubRepoURL": {
-            "type": "string",
-            "defaultValue": "https://github.com/arledesma/AzureNetworkWatcherNSGFlowLogsConnector.git"
+            "defaultValue": "https://github.com/Microsoft/AzureNetworkWatcherNSGFlowLogsConnector.git",
+            "type": "String"
         },
         "githubRepoBranch": {
-            "type": "string",
-            "defaultValue": "feature/armor"
+            "defaultValue": "master",
+            "type": "String"
         },
         "nsgSourceDataConnection": {
-            "type": "string",
+            "type": "String",
             "metadata": {
                 "description": "Mandatory storage account connection string for nsg flow log data."
             }
         },
+        "cefLogAccount": {
+            "defaultValue": "",
+            "type": "String",
+            "metadata": {
+                "description": "ArcSight only: Optional storage account connection string for CEF log tracing."
+            }
+        },
         "outputBinding": {
-            "type": "string",
+            "defaultValue": "arcsight",
             "allowedValues": [
-                "armor"
+                "arcsight",
+                "splunk",
+                "eventhub",
+                "logstash"
             ],
-            "defaultValue": "armor",
+            "type": "String",
             "metadata": {
                 "description": "Select the desired destination for your logs."
             }
         },
-        "armorAddress": {
-            "type": "string",
-            "defaultValue": "1d.log.armor.com",
+        "arcsightAddress": {
+            "defaultValue": "",
+            "type": "String",
             "metadata": {
-                "description": "Armor only: IP or DNS address of ingestion endpoint."
+                "description": "ArcSight only: IP or DNS address of ingestion endpoint."
             }
         },
-        "armorPort": {
-            "type": "string",
-            "defaultValue": "5443",
+        "arcsightPort": {
+            "type": "String",
             "metadata": {
-                "description": "Armor only: TCP port of ingestion endpoint. Defaults to 5443."
+                "description": "ArcSight only: TCP port of ingestion endpoint. Defaults to 1514."
             }
         },
-        "armorAccountId": {
-            "type": "int",
+        "splunkAddress": {
+            "defaultValue": "",
+            "type": "String",
             "metadata": {
-                "description": "Armor only: ID for customer account with Armor."
+                "description": "Splunk only: IP or DNS address of HEC port."
+            }
+        },
+        "splunkToken": {
+            "defaultValue": "",
+            "type": "String",
+            "metadata": {
+                "description": "Splunk only: authentication token for the HEC port."
+            }
+        },
+        "eventHubConnection": {
+            "defaultValue": "",
+            "type": "String",
+            "metadata": {
+                "description": "Event hub only: Connection string for event hub namespace."
+            }
+        },
+        "eventHubName": {
+            "defaultValue": "",
+            "type": "String",
+            "metadata": {
+                "description": "Event hub only: Event hub name."
             }
         }
     },
@@ -101,48 +130,50 @@
     "resources": [
         {
             "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2015-06-15",
             "name": "[variables('storageAccountName')]",
-            "apiVersion": "2018-11-01",
             "location": "[resourceGroup().location]",
-            "kind": "Storage",
-            "sku": {
-                "name": "Standard_LRS"
+            "properties": {
+                "accountType": "Standard_LRS"
             }
         },
         {
-            "condition": "[equals(parameters('appServicePlan'), 'ServicePlan')]",
             "type": "Microsoft.Web/serverfarms",
-            "apiVersion": "2018-11-01",
+            "apiVersion": "2016-09-01",
             "name": "[variables('ServicePlan')]",
             "location": "[resourceGroup().location]",
             "sku": {
                 "tier": "[parameters('appServicePlanTier')]",
                 "name": "[parameters('appServicePlanName')]",
                 "capacity": "[parameters('appServicePlanCapacity')]"
-            }
+            },
+            "condition": "[equals(parameters('appServicePlan'), 'ServicePlan')]"
         },
         {
-            "condition": "[equals(parameters('appServicePlan'), 'Consumption')]",
             "type": "Microsoft.Web/serverfarms",
-            "apiVersion": "2018-11-01",
+            "apiVersion": "2016-09-01",
             "name": "[variables('Consumption')]",
             "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "Y1",
+                "tier": "Dynamic"
+            },
             "properties": {
                 "name": "[variables('Consumption')]",
-                "computeMode": "Dynamic",
-                "sku": "Dynamic"
-            }
+                "computeMode": "Dynamic"
+            },
+            "condition": "[equals(parameters('appServicePlan'), 'Consumption')]"
         },
         {
-            "apiVersion": "2018-11-01",
             "type": "Microsoft.Web/sites",
+            "apiVersion": "2016-08-01",
             "name": "[variables('functionAppName')]",
             "location": "[resourceGroup().location]",
-            "kind": "functionapp",
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
                 "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
             ],
+            "kind": "functionapp",
             "properties": {
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
                 "siteConfig": {
@@ -188,23 +219,35 @@
                             "value": "[parameters('outputBinding')]"
                         },
                         {
-                            "name": "armorAddress",
-                            "value": "[parameters('armorAddress')]"
+                            "name": "arcsightAddress",
+                            "value": "[parameters('arcsightAddress')]"
                         },
                         {
-                            "name": "armorPort",
-                            "value": "[parameters('armorPort')]"
+                            "name": "arcsightPort",
+                            "value": "[parameters('arcsightPort')]"
                         },
                         {
-                            "name": "armorAccountId",
-                            "value": "[parameters('armorAccountId')]"
+                            "name": "splunkAddress",
+                            "value": "[parameters('splunkAddress')]"
+                        },
+                        {
+                            "name": "splunkToken",
+                            "value": "[parameters('splunkToken')]"
+                        },
+                        {
+                            "name": "eventHubConnection",
+                            "value": "[parameters('eventHubConnection')]"
+                        },
+                        {
+                            "name": "eventHubName",
+                            "value": "[parameters('eventHubName')]"
+                        },
+                        {
+                            "name": "cefLogAccount",
+                            "value": "[parameters('cefLogAccount')]"
                         },
                         {
                             "name": "logIncomingJSON",
-                            "value": "false"
-                        },
-                        {
-                            "name": "enableDebugLog",
                             "value": "false"
                         },
                         {
@@ -216,11 +259,11 @@
             },
             "resources": [
                 {
-                    "apiVersion": "2018-11-01",
-                    "name": "web",
                     "type": "sourcecontrols",
+                    "apiVersion": "2016-08-01",
+                    "name": "web",
                     "dependsOn": [
-                        "[resourceId('Microsoft.Web/Sites/', variables('functionAppName'))]"
+                        "[resourceId('Microsoft.Web/Sites', variables('functionAppName'))]"
                     ],
                     "properties": {
                         "RepoUrl": "[parameters('githubRepoURL')]",
