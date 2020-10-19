@@ -1,6 +1,6 @@
 # Deploy an Azure Function using an ARM template
 
-The NwNSGGlowLogs branch contains a working version of the deployment template, tailored for a real version of a function that transmits Azure Network Watcher NSG Flow Logs to Armor or EventHub.
+The NwNSGGlowLogs branch contains a working version of the deployment template, tailored for a real version of a function that transmits Azure Network Watcher NSG Flow Logs to EventHub.
 
 NOTE: Native support for event hubs is not yet available, but would be the preferred method.
 
