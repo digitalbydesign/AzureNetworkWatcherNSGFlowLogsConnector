@@ -36,8 +36,8 @@ The steps to fully implement the Azure Network Watcher NSG Flow Logs Connector a
    Example: ```master```
 * nsgSourceDataConnection     - a storage account connection string
    Example: ```DefaultEndpointsProtocol=https;AccountName=yyy;AccountKey=xxx;EndpointSuffix=core.windows.net```
-* outputBinding               - Points to the destination service - the service that will receive the NSG flow log data. Options are "armor", "eventhub".
-   Example: ```armor```
+* outputBinding               - Points to the destination service - the service that will receive the NSG flow log data. Options is "eventhub".
+   Example: ```eventhub```
 * cefLogAccount               - a storage account connection string - account into which trace logs of incoming json and outgoing cef are dropped
    Example: ```DefaultEndpointsProtocol=https;AccountName=yyy;AccountKey=xxx;EndpointSuffix=core.windows.net```
 * eventHubConnection          - connection string for your event hub namespace

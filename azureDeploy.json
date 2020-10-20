@@ -65,7 +65,7 @@
             }
         },
         "outputBinding": {
-            "defaultValue": "arcsight",
+            "defaultValue": "eventhub",
             "allowedValues": [
                 "arcsight",
                 "splunk",
