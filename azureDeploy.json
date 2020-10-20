@@ -9,7 +9,7 @@
             }
         },
         "appServicePlan": {
-            "defaultValue": "ServicePlan",
+            "defaultValue": "Consumption",
             "allowedValues": [
                 "ServicePlan",
                 "Consumption"
@@ -20,6 +20,7 @@
             }
         },
         "appServicePlanTier": {
+            "defaultValue": "Free",
             "allowedValues": [
                 "Free",
                 "Shared",
