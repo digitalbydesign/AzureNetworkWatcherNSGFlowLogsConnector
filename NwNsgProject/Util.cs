@@ -1,6 +1,6 @@
 ﻿using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
-using Microsoft.WindowsAzure.Storage.Blob;
+using Microsoft.Azure.Storage.Blob;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -44,7 +44,7 @@ namespace nsgFunc
             string outputBinding = Util.GetEnvironmentVariable("outputBinding");
             if (outputBinding.Length == 0)
             {
-                log.LogError("Value for outputBinding is required. Permitted values are: 'armor', 'arcsight', 'splunk', 'eventhub'.");
+                log.LogError("Value for outputBinding is required. Permitted values are: 'arcsight', 'splunk', 'eventhub'.");
                 return 0;
             }
 
@@ -89,14 +89,11 @@ namespace nsgFunc
             }
 
             int bytesSent = 0;
-            switch (outputBinding.ToLower())
+            switch (outputBinding)
             {
-                case "armor":
-                    await Util.ObArmor(newClientContent, log);
-                    break;
-                case "logstash":
-                    await Util.obLogstash(newClientContent, log);
-                    break;
+                //case "logstash":
+                //    await Util.obLogstash(newClientContent, log);
+                //    break;
                 case "arcsight":
                     bytesSent = await Util.obArcsightNew(newClientContent, executionContext, cefLogBinder, log);
                     break;

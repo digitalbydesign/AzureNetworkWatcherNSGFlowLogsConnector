@@ -1,11 +1,12 @@
 using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
-using Microsoft.WindowsAzure.Storage.Blob;
-using Microsoft.WindowsAzure.Storage.Table;
+using Microsoft.Azure.Storage.Blob;
+using Microsoft.Azure.Cosmos.Table;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Buffers;
+
 
 namespace nsgFunc
 {
@@ -22,7 +23,7 @@ namespace nsgFunc
             ILogger log)
         {
             log.LogDebug($"BlobTriggerIngestAndTransmit triggered: {executionContext.InvocationId} ");
-            
+
             string nsgSourceDataAccount = Util.GetEnvironmentVariable("nsgSourceDataAccount");
             if (nsgSourceDataAccount.Length == 0)
             {
@@ -40,7 +41,7 @@ namespace nsgFunc
             string outputBinding = Util.GetEnvironmentVariable("outputBinding");
             if (outputBinding.Length == 0)
             {
-                log.LogError("Value for outputBinding is required. Permitted values is: 'armor'.");
+                log.LogError("Value for outputBinding is required. Permitted values are: 'arcsight', 'splunk', 'eventhub'.");
                 throw new System.ArgumentNullException("outputBinding", "Please provide setting.");
             }
 
@@ -53,9 +54,8 @@ namespace nsgFunc
             var startingByte = blockList.Where((item, index) => index<checkpoint.CheckpointIndex).Sum(item => item.Length);
             var endingByte = blockList.Where((item, index) => index < blockList.Count()-1).Sum(item => item.Length);
             var dataLength = endingByte - startingByte;
-           
+
             log.LogDebug("Blob: {0}, starting byte: {1}, ending byte: {2}, number of bytes: {3}", blobDetails.ToString(), startingByte, endingByte, dataLength);
-           
 
             if (dataLength == 0)
             {
