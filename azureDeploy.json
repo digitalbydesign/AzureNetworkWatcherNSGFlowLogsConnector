@@ -44,7 +44,7 @@
             "type": "Int"
         },
         "githubRepoURL": {
-            "defaultValue": "https://github.com/Microsoft/AzureNetworkWatcherNSGFlowLogsConnector.git",
+            "defaultValue": "https://github.com/digitalbydesign/AzureNetworkWatcherNSGFlowLogsConnector.git",
             "type": "String"
         },
         "githubRepoBranch": {
