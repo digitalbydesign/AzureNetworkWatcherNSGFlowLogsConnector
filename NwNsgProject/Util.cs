@@ -94,9 +94,9 @@ namespace nsgFunc
                 //case "logstash":
                 //    await Util.obLogstash(newClientContent, log);
                 //    break;
-                case "arcsight":
-                    bytesSent = await Util.obArcsightNew(newClientContent, executionContext, cefLogBinder, log);
-                    break;
+                //case "arcsight":
+                //    bytesSent = await Util.obArcsightNew(newClientContent, executionContext, cefLogBinder, log);
+                //    break;
                 case "splunk":
                     bytesSent = await Util.obSplunk(newClientContent, log);
                     break;
