@@ -192,22 +192,6 @@
                             "value": "[parameters('outputBinding')]"
                         },
                         {
-                            "name": "arcsightAddress",
-                            "value": "[parameters('arcsightAddress')]"
-                        },
-                        {
-                            "name": "arcsightPort",
-                            "value": "[parameters('arcsightPort')]"
-                        },
-                        {
-                            "name": "splunkAddress",
-                            "value": "[parameters('splunkAddress')]"
-                        },
-                        {
-                            "name": "splunkToken",
-                            "value": "[parameters('splunkToken')]"
-                        },
-                        {
                             "name": "eventHubConnection",
                             "value": "[parameters('eventHubConnection')]"
                         },
