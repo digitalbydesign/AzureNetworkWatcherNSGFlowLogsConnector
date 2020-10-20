@@ -48,7 +48,7 @@
             "type": "String"
         },
         "githubRepoBranch": {
-            "defaultValue": "master",
+            "defaultValue": "feature/campus",
             "type": "String"
         },
         "nsgSourceDataConnection": {
