@@ -103,7 +103,7 @@
     "resources": [
         {
             "type": "Microsoft.Storage/storageAccounts",
-            "apiVersion": "2015-06-15",
+            "apiVersion": "2018-11-01",
             "name": "[variables('storageAccountName')]",
             "location": "[resourceGroup().location]",
             "properties": {
@@ -124,7 +124,7 @@
         },
         {
             "type": "Microsoft.Web/serverfarms",
-            "apiVersion": "2016-09-01",
+            "apiVersion": "2018-11-01",
             "name": "[variables('Consumption')]",
             "location": "[resourceGroup().location]",
             "sku": {
@@ -139,7 +139,7 @@
         },
         {
             "type": "Microsoft.Web/sites",
-            "apiVersion": "2016-08-01",
+            "apiVersion": "2018-11-01",
             "name": "[variables('functionAppName')]",
             "location": "[resourceGroup().location]",
             "dependsOn": [
