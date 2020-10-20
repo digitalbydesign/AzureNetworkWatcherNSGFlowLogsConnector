@@ -77,33 +77,6 @@
                 "description": "Select the desired destination for your logs."
             }
         },
-        "arcsightAddress": {
-            "defaultValue": "",
-            "type": "String",
-            "metadata": {
-                "description": "ArcSight only: IP or DNS address of ingestion endpoint."
-            }
-        },
-        "arcsightPort": {
-            "type": "String",
-            "metadata": {
-                "description": "ArcSight only: TCP port of ingestion endpoint. Defaults to 1514."
-            }
-        },
-        "splunkAddress": {
-            "defaultValue": "",
-            "type": "String",
-            "metadata": {
-                "description": "Splunk only: IP or DNS address of HEC port."
-            }
-        },
-        "splunkToken": {
-            "defaultValue": "",
-            "type": "String",
-            "metadata": {
-                "description": "Splunk only: authentication token for the HEC port."
-            }
-        },
         "eventHubConnection": {
             "defaultValue": "",
             "type": "String",
