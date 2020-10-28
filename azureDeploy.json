@@ -20,7 +20,7 @@
             }
         },
         "appServicePlanTier": {
-            "defaultValue": "Free",
+            "defaultValue": "Basic",
             "allowedValues": [
                 "Free",
                 "Shared",
@@ -132,7 +132,7 @@
             "name": "[variables('Consumption')]",
             "location": "[resourceGroup().location]",
             "sku": {
-                "name": "Y1",
+                "name": "B1",
                 "tier": "Dynamic"
             },
             "properties": {
