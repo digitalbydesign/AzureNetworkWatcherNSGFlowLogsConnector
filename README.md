@@ -22,9 +22,7 @@ The steps to fully implement the Azure Network Watcher NSG Flow Logs Connector a
 * appServicePlanTier          - "Free", "Shared", "Basic", "Standard", "Premium", "PremiumV2"
    Example: ```Standard```
    (only relevant for ServicePlan)
-* appServicePlanName          - currently configured for the B1 service plan. This can be changed in the azuredeploy.json file accordingly.
-   Example: For standard tier, "S1", "S2", "S3" are options for plan name
-   (only relevant for ServicePlan)
+* appServicePlanName          - currently configured for the B1 service plan. This can be changed in the azuredeploy.json file accordingly. You can leave this field blank.
 * appServicePlanCapacity      - how many instances do you want to set for the upper limit?
    Example: For standard tier, S2, set a value from 1 to 10
    (only relevant for ServicePlan)
